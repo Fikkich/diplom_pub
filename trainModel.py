@@ -1,7 +1,7 @@
 import os, argparse, glob, datetime
 import numpy as np
 import tensorflow as tf
-import pandas as pd  # можно оставить, но сейчас не используется
+import pandas as pd  
 
 
 AUTOTUNE = tf.data.AUTOTUNE
@@ -61,12 +61,10 @@ def fer_from_class_folders_root(data_dir, seed=42, val_split=0.1, test_split=0.1
     paths = np.array(paths)
     labels = np.array(labels, dtype=np.int32)
 
-    # shuffle
+
     rng = np.random.default_rng(seed)
     perm = rng.permutation(len(paths))
     paths, labels = paths[perm], labels[perm]
-
-    # split sizes
     n = len(paths)
     n_test = int(n * test_split)
     n_val  = int(n * val_split)
@@ -81,28 +79,24 @@ def fer_from_class_folders_root(data_dir, seed=42, val_split=0.1, test_split=0.1
     return (tr_p, tr_y), (va_p, va_y), (te_p, te_y)
 
 
-# --- Аугментации ---
-
 def augment_image(img, training: bool):
     img = tf.cast(img, tf.float32) / 255.0
 
     if not training:
         return img
 
-    # базовые
+
     img = tf.image.random_flip_left_right(img)
     img = tf.image.random_brightness(img, 0.10)
     img = tf.image.random_contrast(img, 0.85, 1.15)
 
-    # небольшие повороты через rot90
     k = tf.random.uniform([], minval=0, maxval=4, dtype=tf.int32)
-    img = tf.image.rot90(img, k)
 
-    # лёгкий zoom/crop
+    img = tf.image.rot90(img, k)
     img = tf.image.resize_with_crop_or_pad(img, 54, 54)
     img = tf.image.random_crop(img, size=[48, 48, 1])
 
-    # лёгкий Gaussian noise
+
     noise = tf.random.normal(shape=tf.shape(img), mean=0.0, stddev=0.03)
     img = img + noise
     img = tf.clip_by_value(img, 0.0, 1.0)
@@ -132,9 +126,6 @@ def build_dataset_from_paths(paths, y, batch_size, training):
     ds = ds.map(map_fn, num_parallel_calls=AUTOTUNE)
     ds = ds.batch(batch_size).prefetch(AUTOTUNE)
     return ds
-
-
-# --- Модель ---
 
 def residual_block(x, filters, weight_decay=1e-4):
     shortcut = x
@@ -174,7 +165,6 @@ def make_model(weight_decay=1e-4):
     inputs = tf.keras.Input(shape=(48, 48, 1))
     x = inputs
 
-    # блок 1
     x = tf.keras.layers.Conv2D(
         64, 3, padding="same", use_bias=False,
         kernel_regularizer=tf.keras.regularizers.l2(weight_decay)
@@ -185,17 +175,14 @@ def make_model(weight_decay=1e-4):
     x = tf.keras.layers.MaxPool2D()(x)
     x = tf.keras.layers.Dropout(0.25)(x)
 
-    # блок 2
     x = residual_block(x, 128, weight_decay)
     x = tf.keras.layers.MaxPool2D()(x)
     x = tf.keras.layers.Dropout(0.30)(x)
 
-    # блок 3
     x = residual_block(x, 256, weight_decay)
     x = tf.keras.layers.MaxPool2D()(x)
     x = tf.keras.layers.Dropout(0.35)(x)
 
-    # хвост
     x = tf.keras.layers.Conv2D(
         256, 3, padding="same", use_bias=False,
         kernel_regularizer=tf.keras.regularizers.l2(weight_decay)
@@ -268,7 +255,6 @@ def main():
             f"или запусти с параметром: --data_dir \"...\""
         )
 
-    # --- ТОЛЬКО ПАПКИ-КЛАССЫ ---
     (tr_p, tr_y), (va_p, va_y), (te_p, te_y) = fer_from_class_folders_root(
         data_dir, seed=args.seed, val_split=args.val_split, test_split=args.test_split
     )
@@ -281,7 +267,6 @@ def main():
 
     class_weights = compute_class_weights(tr_y, num_classes=7)
 
-    # модель + компиляция
     model = make_model(weight_decay=1e-4)
 
     loss = tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.03)
@@ -296,7 +281,6 @@ def main():
         ]
     )
 
-    # callbacks
     ckpt = tf.keras.callbacks.ModelCheckpoint(
         out_path, monitor="val_acc", mode="max",
         save_best_only=True, save_weights_only=False
