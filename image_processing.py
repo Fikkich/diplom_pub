@@ -1,6 +1,4 @@
-"""
-Модуль для обробки та відображення зображень
-"""
+
 import cv2
 import numpy as np
 import customtkinter as ctk
@@ -10,30 +8,14 @@ from utils import load_font
 
 
 def fit_to_view(pil_img: Image.Image) -> Image.Image:
-    """
-    Зменшує зображення до розміру вікна перегляду
     
-    Args:
-        pil_img: PIL Image об'єкт
-        
-    Returns:
-        Зменшене зображення
-    """
     img = pil_img.copy()
     img.thumbnail((VIEW_W, VIEW_H))
     return img
 
 
 def compose_on_white(pil_img: Image.Image) -> Image.Image:
-    """
-    Розміщує зображення на фоні відповідно до теми
-    
-    Args:
-        pil_img: PIL Image об'єкт
-        
-    Returns:
-        Зображення на фоні
-    """
+   
     bg_color = (40, 40, 40) if ctk.get_appearance_mode() == "Dark" else (255, 255, 255)
     bg = Image.new("RGB", (VIEW_W, VIEW_H), bg_color)
     x0 = (VIEW_W - pil_img.width) // 2
@@ -43,12 +25,7 @@ def compose_on_white(pil_img: Image.Image) -> Image.Image:
 
 
 def create_blank_image():
-    """
-    Створює порожнє зображення для відображення
-    
-    Returns:
-        PIL Image об'єкт
-    """
+   
     bg_color = (40, 40, 40) if ctk.get_appearance_mode() == "Dark" else (255, 255, 255)
     blank = Image.new("RGB", (VIEW_W, VIEW_H), bg_color)
     return blank
@@ -56,20 +33,7 @@ def create_blank_image():
 
 def overlay_annotation(frame_bgr, x, y, w, h, emotion_text, conf, 
                        rectangle_color_bgr, text_color_rgb):
-    """
-    Додає анотації (рамку та текст) на зображення
     
-    Args:
-        frame_bgr: Кадр у форматі BGR
-        x, y, w, h: Координати та розміри обличчя
-        emotion_text: Текст емоції
-        conf: Впевненість
-        rectangle_color_bgr: Колір рамки (BGR)
-        text_color_rgb: Колір тексту (RGB)
-        
-    Returns:
-        Кадр з анотаціями
-    """
     out = frame_bgr.copy()
     cv2.rectangle(out, (x, y), (x+w, y+h), rectangle_color_bgr, 2)
     font_size = max(20, min(int(h * 0.23), 50))
@@ -89,15 +53,7 @@ def overlay_annotation(frame_bgr, x, y, w, h, emotion_text, conf,
 
 
 def convert_frame_to_tk_image(frame_bgr):
-    """
-    Конвертує кадр BGR у формат для відображення в Tkinter
-    
-    Args:
-        frame_bgr: Кадр у форматі BGR
-        
-    Returns:
-        ImageTk.PhotoImage об'єкт
-    """
+   
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     im = Image.fromarray(frame_rgb)
     im = fit_to_view(im)

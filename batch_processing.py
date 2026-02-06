@@ -1,6 +1,4 @@
-"""
-Модуль для пакетної обробки зображень
-"""
+
 import os
 import csv
 import threading
@@ -16,15 +14,7 @@ from config import EMOTION_LABELS_UA
 
 
 def find_image_files(folder):
-    """
-    Знаходить всі файли зображень у папці
     
-    Args:
-        folder: Шлях до папки
-        
-    Returns:
-        Список шляхів до файлів
-    """
     exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff")
     file_list = []
     for root_dir, _, files in os.walk(folder):
@@ -35,16 +25,7 @@ def find_image_files(folder):
 
 
 def analyze_image(img_path, model_predict_func):
-    """
-    Аналізує одне зображення
     
-    Args:
-        img_path: Шлях до зображення
-        model_predict_func: Функція для передбачення емоцій
-        
-    Returns:
-        Словник з результатами аналізу
-    """
     img = cv2_imread_unicode(img_path, cv2.IMREAD_COLOR)
     if img is None:
         return {
@@ -87,15 +68,6 @@ def analyze_image(img_path, model_predict_func):
 
 
 def create_progress_window(parent):
-    """
-    Створює вікно прогресу для пакетної обробки
-    
-    Args:
-        parent: Батьківське вікно
-        
-    Returns:
-        Кортеж (вікно, мітка інфо, прогрес-бар, мітка відсотків)
-    """
     progress_win = ctk.CTkToplevel(parent)
     progress_win.title("Обробка папки")
     progress_win.geometry("400x120")
@@ -119,15 +91,6 @@ def create_progress_window(parent):
 
 
 def process_batch_worker(file_list, out_csv, model_predict_func, progress_callback):
-    """
-    Робоча функція для обробки пакету зображень
-    
-    Args:
-        file_list: Список шляхів до файлів
-        out_csv: Шлях до вихідного CSV файлу
-        model_predict_func: Функція для передбачення емоцій
-        progress_callback: Функція для оновлення прогресу
-    """
     try:
         with open(out_csv, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f, delimiter=';')

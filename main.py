@@ -1,6 +1,4 @@
-"""
-Головний файл додатку для розпізнавання емоцій
-"""
+
 import os
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, colorchooser
@@ -11,7 +9,6 @@ from collections import deque
 from PIL import Image, ImageTk
 import threading
 
-# Імпорт модулів
 from config import (
     WINDOW_W, WINDOW_H, VIEW_W, VIEW_H, base_dir,
     EMOTION_LABELS_UA, SMOOTH_WINDOW, PRED_INTERVAL_MS
@@ -33,7 +30,6 @@ from batch_processing import (
 
 
 class EmotionApp:
-    """Головний клас додатку для розпізнавання емоцій"""
 
     def __init__(self, root):
         ctk.set_appearance_mode("dark")
@@ -53,38 +49,32 @@ class EmotionApp:
             except Exception:
                 pass
 
-        # Стан камери та відео
+        
         self.cap = None
         self.running = False
         self.current_device = ctk.StringVar(value="0")
         self.device_indices = []
-
-        # Буфер для згладжування
+        
         self.prob_buffer = deque(maxlen=SMOOTH_WINDOW)
 
-        # FPS та таймінги
         self.last_time = time.time()
         self.fps = 0.0
 
-        # Режим джерела
         self.source_mode = "camera"
         self.video_path = None
         self.video_fps = 30.0
         self.video_t0 = None
         self.video_frame_index = 0
 
-        # Стан передбачення
         self.last_pred_ts = 0.0
         self.last_emotion = None
         self.last_conf = 0.0
         self.last_smoothed = None
 
-        # Налаштування
         self.conf_threshold_var = ctk.DoubleVar(value=0.6)
         self.rectangle_color_bgr = (0, 200, 100)
         self.text_color_rgb = (0, 200, 100)
 
-        # Пакетна обробка
         self.batch_thread = None
         self.batch_total = 0
         self.batch_done = 0
@@ -93,7 +83,6 @@ class EmotionApp:
         self.progress_bar = None
         self.lbl_percent = None
 
-        # UI
         self.last_annotated_bgr = None
         self.update_job = None
 
@@ -102,8 +91,6 @@ class EmotionApp:
         self.refresh_cameras()
 
     def setup_ui(self):
-        """Створює інтерфейс користувача"""
-        # Верхня панель
         top = ctk.CTkFrame(self.root)
         top.pack(side=ctk.TOP, fill=ctk.X, padx=8, pady=8)
 
@@ -142,11 +129,9 @@ class EmotionApp:
         self.fps_label = ctk.CTkLabel(top, text="FPS: 0.0")
         self.fps_label.pack(side=ctk.RIGHT, padx=10)
 
-        # Середня частина
         middle = ctk.CTkFrame(self.root)
         middle.pack(fill=ctk.BOTH, expand=True, padx=8, pady=8)
 
-        # Бічна панель
         sidebar = ctk.CTkFrame(middle, width=150)
         sidebar.pack(side=ctk.LEFT, fill=ctk.Y, padx=(0, 8))
         sidebar.pack_propagate(False)
@@ -154,7 +139,6 @@ class EmotionApp:
         ctk.CTkLabel(sidebar, text="Налаштування",
                      font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 20))
 
-        # Колір рамки
         ctk.CTkLabel(sidebar, text="Колір рамки:",
                      font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
         rect_color_hex = "#%02x%02x%02x" % (
@@ -168,7 +152,6 @@ class EmotionApp:
                                             hover_color=rect_color_hex)
         self.btn_rect_color.pack(pady=5)
 
-        # Колір тексту
         ctk.CTkLabel(sidebar, text="Колір тексту:",
                      font=ctk.CTkFont(size=12)).pack(pady=(20, 5))
         text_color_hex = "#%02x%02x%02x" % self.text_color_rgb
@@ -178,7 +161,6 @@ class EmotionApp:
                                             hover_color=text_color_hex)
         self.btn_text_color.pack(pady=5)
 
-        # Мінімальна впевненість
         ctk.CTkLabel(sidebar, text="Мін. впевненість:",
                      font=ctk.CTkFont(size=12)).pack(pady=(20, 5))
         self.conf_slider = ctk.CTkSlider(
@@ -191,7 +173,6 @@ class EmotionApp:
         self.conf_label.pack(pady=(0, 10))
         self.conf_threshold_var.trace('w', self.update_conf_label)
 
-        # Ймовірності емоцій
         ctk.CTkLabel(sidebar, text="Ймовірності емоцій:",
                      font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(10, 5))
 
@@ -208,7 +189,6 @@ class EmotionApp:
             bar.set(0.0)
             self.emotion_bars.append(bar)
 
-        # Відео панель
         self.video_frame = ctk.CTkFrame(middle, width=VIEW_W, height=VIEW_H)
         self.video_frame.pack_propagate(False)
         self.video_frame.pack(side=ctk.LEFT, fill=ctk.BOTH, expand=True)
@@ -216,7 +196,6 @@ class EmotionApp:
         self.video_label = ctk.CTkLabel(self.video_frame, text="")
         self.video_label.pack(fill=ctk.BOTH, expand=True)
 
-        # Нижня панель
         bottom = ctk.CTkFrame(self.root)
         bottom.pack(side=ctk.BOTTOM, fill=ctk.X, padx=8, pady=8)
 
@@ -234,12 +213,10 @@ class EmotionApp:
         self.btn_save_annot.pack(side=ctk.RIGHT)
 
     def update_conf_label(self, *args):
-        """Оновлює мітку мінімальної впевненості"""
         val = self.conf_threshold_var.get()
         self.conf_label.configure(text=f"{val:.0%}")
 
     def refresh_cameras(self):
-        """Оновлює список доступних камер"""
         was_running = self.running
         if was_running:
             self.stop()
@@ -255,7 +232,6 @@ class EmotionApp:
             self.current_device.set(str(self.device_indices[0]))
 
     def on_camera_selected(self, event=None):
-        """Обробник вибору камери"""
         selected = self.device_combo.get()
         try:
             cam_num = int(selected.split()[-1])
@@ -265,7 +241,6 @@ class EmotionApp:
             pass
 
     def choose_rectangle_color(self):
-        """Вибір кольору рамки"""
         rgb_color = (
             self.rectangle_color_bgr[2],
             self.rectangle_color_bgr[1],
@@ -279,7 +254,6 @@ class EmotionApp:
             self.btn_rect_color.configure(fg_color=color[1], hover_color=color[1])
 
     def choose_text_color(self):
-        """Вибір кольору тексту"""
         rgb_color = self.text_color_rgb
         color = colorchooser.askcolor(title="Оберіть колір тексту", color=rgb_color)
         if color[1] is not None:
@@ -288,14 +262,12 @@ class EmotionApp:
             self.btn_text_color.configure(fg_color=color[1], hover_color=color[1])
 
     def show_blank(self):
-        """Показує порожнє зображення"""
         blank = create_blank_image()
         imgtk = ImageTk.PhotoImage(blank)
         self.video_label.imgtk = imgtk
         self.video_label.configure(image=imgtk)
 
     def _reset_runtime_state(self):
-        """Скидає стан виконання"""
         self.prob_buffer.clear()
         self.last_pred_ts = 0.0
         self.last_emotion = None
@@ -310,7 +282,6 @@ class EmotionApp:
             bar.set(0.0)
 
     def start(self):
-        """Запускає камеру"""
         if self.running:
             return
 
@@ -332,7 +303,6 @@ class EmotionApp:
         self.loop()
 
     def load_video(self):
-        """Завантажує відео файл"""
         if self.running:
             self.stop()
 
@@ -369,7 +339,6 @@ class EmotionApp:
         self.loop()
 
     def stop(self):
-        """Зупиняє камеру або відео"""
         self.running = False
         if self.update_job is not None:
             self.root.after_cancel(self.update_job)
@@ -390,16 +359,13 @@ class EmotionApp:
         self.video_frame_index = 0
 
     def on_close(self):
-        """Обробник закриття вікна"""
         self.stop()
         self.root.destroy()
 
     def loop(self):
-        """Головний цикл обробки кадрів"""
         if not self.running or self.cap is None:
             return
 
-        # Читання кадру
         if self.source_mode == "video":
             frame, new_index = read_frame_video_realtime(
                 self.cap, self.video_fps, self.video_t0, self.video_frame_index
@@ -412,7 +378,6 @@ class EmotionApp:
             self.stop()
             return
 
-        # Детекція облич
         gray_full = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = detect_faces(gray_full, scale_factor=1.2, min_neighbors=5, min_size=(60, 60))
 
@@ -440,7 +405,7 @@ class EmotionApp:
                 self.last_smoothed = smoothed
                 self.last_pred_ts = now_ms
 
-            # Оновлення UI
+          
             if self.last_smoothed is not None:
                 for i, bar in enumerate(self.emotion_bars):
                     bar.set(float(self.last_smoothed[i]))
@@ -474,7 +439,7 @@ class EmotionApp:
 
         self.last_annotated_bgr = annotated
 
-        # Оновлення FPS
+        
         now = time.time()
         dt = now - self.last_time
         if dt > 0:
@@ -482,7 +447,7 @@ class EmotionApp:
         self.last_time = now
         self.fps_label.configure(text=f"FPS: {self.fps:.1f}")
 
-        # Відображення кадру
+        
         imgtk = convert_frame_to_tk_image(self.last_annotated_bgr)
         self.video_label.imgtk = imgtk
         self.video_label.configure(image=imgtk)
@@ -491,7 +456,6 @@ class EmotionApp:
         self.update_job = self.root.after(delay, self.loop)
 
     def load_image(self):
-        """Завантажує зображення"""
         fname = filedialog.askopenfilename(
             title="Оберіть зображення",
             filetypes=[
@@ -508,7 +472,6 @@ class EmotionApp:
         self.predict_image(img)
 
     def predict_image(self, img):
-        """Аналізує зображення"""
         frame = img.copy()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = detect_faces(gray, scale_factor=1.2, min_neighbors=5, min_size=(60, 60))
@@ -553,7 +516,6 @@ class EmotionApp:
         self.video_label.configure(image=imgtk)
 
     def batch_analyze_folder(self):
-        """Запускає пакетну обробку папки"""
         folder = filedialog.askdirectory(title="Оберіть папку з зображеннями")
         if not folder:
             return
@@ -601,7 +563,6 @@ class EmotionApp:
         self.root.after(100, self._update_batch_progress, out_csv)
 
     def _update_batch_progress(self, out_csv):
-        """Оновлює прогрес пакетної обробки"""
         frac = 0.0 if self.batch_total == 0 else self.batch_done / self.batch_total
         if frac > 1.0:
             frac = 1.0
@@ -627,7 +588,6 @@ class EmotionApp:
                                 f"Звіт по {self.batch_total} зображеннях збережено:\n{out_csv}")
 
     def save_annotated(self):
-        """Зберігає зображення з анотаціями"""
         if self.last_annotated_bgr is None:
             return
         fname = filedialog.asksaveasfilename(

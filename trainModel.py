@@ -1,10 +1,11 @@
 import os, argparse, glob, datetime
 import numpy as np
 import tensorflow as tf
-import pandas as pd  
+import pandas as pd
 
 
 AUTOTUNE = tf.data.AUTOTUNE
+
 
 FER_LABELS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
 
@@ -27,13 +28,7 @@ def enable_gpu_memory_growth():
 
 
 def fer_from_class_folders_root(data_dir, seed=42, val_split=0.1, test_split=0.1):
-    """
-    Ожидает структуру:
-      data_dir/<class_name>/*.jpg|png|...
-    где class_name: 0..6 или angry/disgust/.../neutral
-
-    Делит на train/val/test по долям.
-    """
+ 
     def class_to_index(name: str) -> int:
         name_l = name.lower()
         if name_l.isdigit():
@@ -42,7 +37,7 @@ def fer_from_class_folders_root(data_dir, seed=42, val_split=0.1, test_split=0.1
                 return idx
         if name_l in FER_LABELS:
             return FER_LABELS.index(name_l)
-        raise ValueError(f"Неизвестный класс папки: {name}")
+        raise ValueError(f"Невідомий клас папки: {name}")
 
     paths, labels = [], []
     for cls in sorted(os.listdir(data_dir)):
@@ -56,11 +51,10 @@ def fer_from_class_folders_root(data_dir, seed=42, val_split=0.1, test_split=0.1
                 labels.append(idx)
 
     if len(paths) == 0:
-        raise FileNotFoundError("В корне data_dir не найдено изображений в папках-классах.")
+        raise FileNotFoundError("У корені data_dir не знайдено зображень у папках‑класах.")
 
     paths = np.array(paths)
     labels = np.array(labels, dtype=np.int32)
-
 
     rng = np.random.default_rng(seed)
     perm = rng.permutation(len(paths))
@@ -70,7 +64,7 @@ def fer_from_class_folders_root(data_dir, seed=42, val_split=0.1, test_split=0.1
     n_val  = int(n * val_split)
     n_train = n - n_val - n_test
     if n_train <= 0:
-        raise ValueError("Слишком большие val_split/test_split для размера датасета.")
+        raise ValueError("Занадто великі val_split/test_split для розміру датасету.")
 
     tr_p, tr_y = paths[:n_train], labels[:n_train]
     va_p, va_y = paths[n_train:n_train + n_val], labels[n_train:n_train + n_val]
@@ -85,7 +79,6 @@ def augment_image(img, training: bool):
     if not training:
         return img
 
-
     img = tf.image.random_flip_left_right(img)
     img = tf.image.random_brightness(img, 0.10)
     img = tf.image.random_contrast(img, 0.85, 1.15)
@@ -95,7 +88,6 @@ def augment_image(img, training: bool):
     img = tf.image.rot90(img, k)
     img = tf.image.resize_with_crop_or_pad(img, 54, 54)
     img = tf.image.random_crop(img, size=[48, 48, 1])
-
 
     noise = tf.random.normal(shape=tf.shape(img), mean=0.0, stddev=0.03)
     img = img + noise
@@ -127,6 +119,7 @@ def build_dataset_from_paths(paths, y, batch_size, training):
     ds = ds.batch(batch_size).prefetch(AUTOTUNE)
     return ds
 
+
 def residual_block(x, filters, weight_decay=1e-4):
     shortcut = x
 
@@ -156,12 +149,7 @@ def residual_block(x, filters, weight_decay=1e-4):
 
 
 def make_model(weight_decay=1e-4):
-    """
-    Улучшенная CNN для FER:
-    - Residual-блоки
-    - L2-регуляризация
-    - GlobalAveragePooling
-    """
+   
     inputs = tf.keras.Input(shape=(48, 48, 1))
     x = inputs
 
@@ -204,9 +192,7 @@ def make_model(weight_decay=1e-4):
 
 
 def compute_class_weights(labels, num_classes=7):
-    """
-    class_weight для борьбы с дисбалансом.
-    """
+  
     counts = np.bincount(labels, minlength=num_classes)
     total = counts.sum()
     weights = total / (num_classes * np.maximum(counts, 1))
@@ -222,11 +208,11 @@ def main():
         "--data_dir",
         type=str,
         default=None,
-        help="Папка, где сразу лежат подпапки-классы (angry/happy/... или 0/1/...). "
-             "Если не задано — берётся ./trainFER рядом со скриптом."
+        help="Папка, де одразу лежать підпапки‑класи (angry/happy/... або 0/1/...). "
+             "Якщо не задано — береться ./trainFER поруч зі скриптом."
     )
     parser.add_argument("--out", type=str, default=None,
-                        help="Куда сохранить .h5 лучшую модель (если не задано — рядом со скриптом)")
+                        help="Куди зберегти .h5 найкращу модель (якщо не задано — поруч зі скриптом)")
     parser.add_argument("--epochs", type=int, default=120)
     parser.add_argument("--batch", type=int, default=128)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -251,8 +237,6 @@ def main():
     if not os.path.isdir(data_dir):
         raise FileNotFoundError(
             f"data_dir не папка: {data_dir}\n"
-            f"Положи датасет (подпапки-эмоции) в: {default_data_dir}\n"
-            f"или запусти с параметром: --data_dir \"...\""
         )
 
     (tr_p, tr_y), (va_p, va_y), (te_p, te_y) = fer_from_class_folders_root(
@@ -309,7 +293,7 @@ def main():
         class_weight=class_weights
     )
 
-    print("\nBest model saved to:", out_path)
+    print("\nМодель збережена:", out_path)
     best = tf.keras.models.load_model(out_path)
 
     if test_ds is not None:
